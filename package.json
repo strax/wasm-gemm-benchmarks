@@ -1,0 +1,7 @@
+{
+  "name": "foo",
+  "private": true,
+  "dependencies": {
+    "benchmark": "2.1.4"
+  }
+}
