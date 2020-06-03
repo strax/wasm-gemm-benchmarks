@@ -71,13 +71,6 @@ void gemm_adddot4x4(const int k, const double *A, const int lda, const double *B
 {
     int p;
 
-    // register double c_00 = 0.0, c_01 = 0.0, c_02 = 0.0, c_03 = 0.0,
-    //                 c_10 = 0.0, c_11 = 0.0, c_12 = 0.0, c_13 = 0.0,
-    //                 c_20 = 0.0, c_21 = 0.0, c_22 = 0.0, c_23 = 0.0,
-    //                 c_30 = 0.0, c_31 = 0.0, c_32 = 0.0, c_33 = 0.0;
-    // register double a_0, a_1, a_2, a_3;
-    // register double b_0, b_1, b_2, b_3;
-
     double *bp0 = &B(0, 0), *bp1 = &B(0, 1), *bp2 = &B(0, 2), *bp3 = &B(0, 3);
 
     v128_t simd_c00_c10, simd_c01_c11, simd_c02_c12, simd_c03_c13, simd_c20_c30, simd_c21_c31, simd_c22_c32, simd_c23_c33;
@@ -110,13 +103,10 @@ void gemm_adddot4x4(const int k, const double *A, const int lda, const double *B
         // Row 1 & 2
         // c_00 += a_0 * b_0;
         // c_10 += a_1 * b_0;
-
         // c_01 += a_0 * b_1;
         // c_11 += a_1 * b_1;
-
         // c_02 += a_0 * b_2;
         // c_12 += a_1 * b_2;
-
         // c_03 += a_0 * b_3;
         // c_13 += a_1 * b_3;
         simd_c00_c10 = wasm_f64x2_add(simd_c00_c10, wasm_f64x2_mul(simd_a0p_a1p, simd_bp0));
@@ -127,13 +117,10 @@ void gemm_adddot4x4(const int k, const double *A, const int lda, const double *B
         // Row 3 & 4
         // c_20 += a_2 * b_0;
         // c_30 += a_3 * b_0;
-
         // c_21 += a_2 * b_1;
         // c_31 += a_3 * b_1;
-
         // c_22 += a_2 * b_2;
         // c_32 += a_3 * b_2;
-
         // c_23 += a_2 * b_3;
         // c_33 += a_3 * b_3;
         simd_c20_c30 = wasm_f64x2_add(simd_c20_c30, wasm_f64x2_mul(simd_a2p_a3p, simd_bp0));
@@ -173,7 +160,7 @@ void gemm_adddot(int k, double *x, int incx, double *y, double *gamma)
 }
 
 // WASM_EXPORT("dgemm")
-// void dgemm(const i32_t m, const i32_t n, const i32_t k, const f64_t *A, const i32_t lda, const f64_t *B, const i32_t ldb, f64_t *C, const i32_t ldc)
+// void dgemm(const int m, const int n, const int k, const double *A, const int lda, const double *B, const int ldb, double *C, const int ldc)
 // {
 //     __builtin_assume(m >= 0);
 //     __builtin_assume(n >= 0);
@@ -184,29 +171,19 @@ void gemm_adddot(int k, double *x, int incx, double *y, double *gamma)
 //         return;
 //     }
 
-//     i32_t i, j, p;
-//     for (j = 0; j < n; j++)
+//     int i, j;
+//     for (j = 0; j < n; j += 4)
 //     {
-//         for (p = 0; p < k; p++)
+//         for (i = 0; i < m; i += 4)
 //         {
-//             const f64_t b = B[j * ldb + p];
-//             f64_t *pc = &C[j * ldc];
-//             f64_t *pa = &A[p * lda];
-//             const v128_t vb = wasm_f64x2_splat(b);
-// #pragma clang loop unroll_count(8)
-//             for (i = 0; i < m; i += 2)
-//             {
-//                 v128_t vc = wasm_v128_load(pc);
-//                 v128_t va = wasm_v128_load(pa);
-//                 wasm_v128_store(pc, wasm_f64x2_add(vc, wasm_f64x2_mul(va, vb)));
-//                 pc += 2;
-//                 pa += 2;
-//             }
+//             // gemm_adddot1x4(k, &A(i, 0), lda, &B(0, j), ldb, &C(i, j), ldc);
+//             gemm_adddot4x4(k, &A(i, 0), lda, &B(0, j), ldb, &C(i, j), ldc);
 //         }
 //     }
 // }
+
 WASM_EXPORT("dgemm")
-void dgemm(const i32_t m, const i32_t n, const i32_t k, const f64_t *A, const i32_t lda, const f64_t *B, const i32_t ldb, f64_t *C, const i32_t ldc)
+void dgemm(const int m, const int n, const int k, const double *A, const int lda, const double *B, const int ldb, double *C, const int ldc)
 {
     __builtin_assume(m >= 0);
     __builtin_assume(n >= 0);
@@ -217,13 +194,16 @@ void dgemm(const i32_t m, const i32_t n, const i32_t k, const f64_t *A, const i3
         return;
     }
 
-    i32_t i, j;
-    for (j = 0; j < n; j += 4)
+    int i, j, p;
+
+    for (i = 0; i < m; i++)
     {
-        for (i = 0; i < m; i += 4)
+        for (j = 0; j < n; j++)
         {
-            // gemm_adddot1x4(k, &A(i, 0), lda, &B(0, j), ldb, &C(i, j), ldc);
-            gemm_adddot4x4(k, &A(i, 0), lda, &B(0, j), ldb, &C(i, j), ldc);
+            for (p = 0; p < k; p++)
+            {
+                C(i, j) = C(i, j) + A(i, p) * B(p, j);
+            }
         }
     }
 }

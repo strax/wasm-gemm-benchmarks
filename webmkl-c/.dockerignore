@@ -1,0 +1,4 @@
+*.wasm
+*.wat
+lib/wasi
+sysroot

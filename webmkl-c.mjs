@@ -4,18 +4,17 @@ import * as FS from "fs";
 
 const { instance } = await WebAssembly.instantiate(
   FS.readFileSync("webmkl-c/blas.wasm")
-  // { env: { memory: MEMORY } }
 );
 
-const MEMORY = instance.exports.memory;
-const MEMORY_F32 = new Float32Array(MEMORY.buffer, 0);
+export const MEMORY = instance.exports.memory;
+const HEAP_BASE = instance.exports.__heap_base;
 
 export function calloc(n, size) {
-  return instance.exports.calloc(n, size);
+  return instance.exports.blas_calloc(n, size);
 }
 
 export function free(ptr) {
-  return instance.exports.free(ptr);
+  return instance.exports.blas_free(ptr);
 }
 
 const FINALIZATION_GROUP = new FinalizationGroup(free);
@@ -41,12 +40,15 @@ export class ManagedFloat64Array extends Float64Array {
    * @param {number} length
    */
   constructor(length) {
+    console.trace("new ManagedFloat64Array(%d)", length);
     const ptr = calloc(length, Float64Array.BYTES_PER_ELEMENT);
+    console.debug("ptr = %d", ptr);
     super(MEMORY.buffer, ptr, length);
     // FINALIZATION_GROUP.register(this, ptr);
   }
 
-  free() {
+  dispose() {
+    // FINALIZATION_GROUP.unregister(this);
     free(this.byteOffset);
   }
 }
@@ -63,7 +65,8 @@ export class ManagedFloat32Array extends Float32Array {
    */
   constructor(length) {
     const ptr = calloc(length, Float32Array.BYTES_PER_ELEMENT);
-    super(MEMORY.buffer, ptr, length);
+    console.debug("ptr = %d", ptr);
+    super(MEMORY.buffer, HEAP_BASE + ptr, length);
     // FINALIZATION_GROUP.register(this, ptr);
   }
 }
