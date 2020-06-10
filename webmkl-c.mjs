@@ -13,6 +13,10 @@ export function calloc(n, size) {
   return instance.exports.blas_calloc(n, size);
 }
 
+export function malloc(size) {
+  return instance.exports.blas_malloc(size);
+}
+
 export function free(ptr) {
   return instance.exports.blas_free(ptr);
 }
@@ -85,10 +89,20 @@ export function sscal(a, xs) {
 
 /**
  * @param {number} a
- * @param {Float64Array} xs
+ * @param {Float64Array} v
  */
-export function dscal(n, a, xs) {
-  instance.exports.dscal(n, a, xs.byteOffset);
+export function dscal(n, a, v) {
+  if (n > 256) {
+    const vp = malloc(v.byteLength);
+    copyTo(vp, v);
+    instance.exports.dscal(n, a, vp);
+    v.set(new Float64Array(MEMORY.buffer, vp, n));
+    free(vp);
+  } else {
+    for (let i = 0; i < n; i++) {
+      v[i] += +a;
+    }
+  }
 }
 
 /**
@@ -114,6 +128,18 @@ export const TRANS = 1;
 export const CONJ_TRANS = 2;
 
 /**
+ * Copies `buffer` to the current linear memory of the WASM instance.
+ * @param {number} ptr
+ * @param {ArrayBuffer | ArrayBufferView} buffer
+ */
+function copyTo(ptr, buffer) {
+  new Uint8Array(MEMORY.buffer).set(
+    new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    ptr
+  );
+}
+
+/**
  *
  * @param {number} m Row count of A
  * @param {number} n Row count of A
@@ -126,15 +152,24 @@ export const CONJ_TRANS = 2;
  * @param {number} ldc Row count of C
  */
 export function dgemm(m, n, k, A, lda, B, ldb, C, ldc) {
-  instance.exports.dgemm(
-    m,
-    n,
-    k,
-    A.byteOffset,
-    lda,
-    B.byteOffset,
-    ldb,
-    C.byteOffset,
-    ldc
-  );
+  // Allocate a single contiguous block of memory for all of the matrices
+  const ap = malloc(A.byteLength + B.byteLength + C.byteLength);
+  const bp = ap + A.byteLength;
+  const cp = bp + C.byteLength;
+  // console.debug("ap = %d, bp = %d, cp = %d", ap, bp, cp);
+  copyTo(ap, A);
+  copyTo(bp, B);
+  copyTo(cp, C);
+  // console.debug("A = %o", new Float64Array(MEMORY.buffer, ap, A.length));
+  // console.debug("B = %o", new Float64Array(MEMORY.buffer, bp, B.length));
+  // console.debug("C = %o", new Float64Array(MEMORY.buffer, cp, C.length));
+  instance.exports.dgemm(m, n, k, ap, lda, bp, ldb, cp, ldc);
+  // console.debug(
+  //   "RESULT = %o",
+  //   new Float64Array(MEMORY.buffer.slice(cp, cp + C.byteLength))
+  // );
+  C.set(new Float64Array(MEMORY.buffer.slice(cp, cp + C.byteLength)));
+  free(ap);
+  // free(bp);
+  // free(cp);
 }

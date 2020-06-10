@@ -159,29 +159,6 @@ void gemm_adddot(int k, double *x, int incx, double *y, double *gamma)
     }
 }
 
-// WASM_EXPORT("dgemm")
-// void dgemm(const int m, const int n, const int k, const double *A, const int lda, const double *B, const int ldb, double *C, const int ldc)
-// {
-//     __builtin_assume(m >= 0);
-//     __builtin_assume(n >= 0);
-//     __builtin_assume(k >= 0);
-
-//     if (m == 0 || n == 0 || k == 0)
-//     {
-//         return;
-//     }
-
-//     int i, j;
-//     for (j = 0; j < n; j += 4)
-//     {
-//         for (i = 0; i < m; i += 4)
-//         {
-//             // gemm_adddot1x4(k, &A(i, 0), lda, &B(0, j), ldb, &C(i, j), ldc);
-//             gemm_adddot4x4(k, &A(i, 0), lda, &B(0, j), ldb, &C(i, j), ldc);
-//         }
-//     }
-// }
-
 WASM_EXPORT("dgemm")
 void dgemm(const int m, const int n, const int k, const double *A, const int lda, const double *B, const int ldb, double *C, const int ldc)
 {
@@ -194,16 +171,39 @@ void dgemm(const int m, const int n, const int k, const double *A, const int lda
         return;
     }
 
-    int i, j, p;
-
-    for (i = 0; i < m; i++)
+    int i, j;
+    for (j = 0; j < n; j += 4)
     {
-        for (j = 0; j < n; j++)
+        for (i = 0; i < m; i += 4)
         {
-            for (p = 0; p < k; p++)
-            {
-                C(i, j) = C(i, j) + A(i, p) * B(p, j);
-            }
+            // gemm_adddot1x4(k, &A(i, 0), lda, &B(0, j), ldb, &C(i, j), ldc);
+            gemm_adddot4x4(k, &A(i, 0), lda, &B(0, j), ldb, &C(i, j), ldc);
         }
     }
 }
+
+// WASM_EXPORT("dgemm")
+// void dgemm(const int m, const int n, const int k, const double *A, const int lda, const double *B, const int ldb, double *C, const int ldc)
+// {
+//     __builtin_assume(m >= 0);
+//     __builtin_assume(n >= 0);
+//     __builtin_assume(k >= 0);
+
+//     if (m == 0 || n == 0 || k == 0)
+//     {
+//         return;
+//     }
+
+//     int i, j, p;
+
+//     for (i = 0; i < m; i++)
+//     {
+//         for (j = 0; j < n; j++)
+//         {
+//             for (p = 0; p < k; p++)
+//             {
+//                 C(i, j) = C(i, j) + A(i, p) * B(p, j);
+//             }
+//         }
+//     }
+// }

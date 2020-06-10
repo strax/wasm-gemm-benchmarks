@@ -33,18 +33,9 @@ function test_dgemm(m, n, k) {
       B1[j * ldb + p] = Math.random();
     }
   }
-  const A2 = WebMKLC.ManagedFloat64Array.copied(A1);
-  console.debug("A2 = %o", A2);
-  const B2 = WebMKLC.ManagedFloat64Array.copied(B1);
-  console.debug("B2 = %o", B2);
-  const C2 = new WebMKLC.ManagedFloat64Array(m * n);
-  if (C2.length !== m * n) {
-    throw new Error(
-      `Alloc error, C2.length == ${
-        C2.length
-      }, m = ${m}, n = ${n}, size should be ${m * n}`
-    );
-  }
+  const A2 = Float64Array.from(A1);
+  const B2 = Float64Array.from(B1);
+  const C2 = Float64Array.from(C1);
 
   let best1 = Infinity;
   let best2 = Infinity;
@@ -70,27 +61,7 @@ function test_dgemm(m, n, k) {
   // // Check that the implementations are equal
   for (let i = 0; i < C1.length; i++) {
     if (Math.abs(C1[i] - C2[i]) > 1 ** -10) {
-      console.warn(
-        "[m=%d,i=%d] WARNING: C1[i] = %d but C2[i] = %d",
-        m,
-        i,
-        C1[i],
-        C2[i]
-      );
-      console.warn("page size: %d", WebMKLC.MEMORY.buffer.byteLength / 0x10000);
-      console.debug("A1: %o", A1);
-      console.debug("A2: %o", A2);
-      console.debug("B1: %o", B1);
-      console.debug("B2: %o", B2);
-      console.debug("C1: %o", C1);
-      console.debug("C2: %o", C2);
-      throw new Error();
-      console.debug(A1);
-      console.debug(A2);
-      A2.dispose();
-      B2.dispose();
-      C2.dispose();
-      return;
+      throw new Error(`index ${i}: C1[i] = ${C1[i]}, C2[i] = ${C2[i]}`);
     }
   }
 
@@ -103,14 +74,14 @@ function test_dgemm(m, n, k) {
     (flops / Number(best2)).toFixed(5)
   );
 
-  A2.dispose();
-  B2.dispose();
-  C2.dispose();
+  // A2.dispose();
+  // B2.dispose();
+  // C2.dispose();
 }
 
 const BLOCK_SIZE = 16;
 const MIN_SIZE = 16;
-const MAX_SIZE = 1024;
+const MAX_SIZE = 512;
 
 const performanceObserver = new PerformanceObserver((observer) => {
   console.warn("observed a PerformanceEvent");

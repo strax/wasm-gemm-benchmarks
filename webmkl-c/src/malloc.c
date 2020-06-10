@@ -8,6 +8,12 @@ void *blas_calloc(size_t num, size_t size)
     return ptr;
 }
 
+WASM_EXPORT("blas_malloc")
+void *blas_malloc(size_t size)
+{
+    return malloc(size);
+}
+
 WASM_EXPORT("blas_free")
 void blas_free(void *ptr)
 {

@@ -36,21 +36,26 @@ void dscal(int n, double a, double *x)
     {
         return;
     }
-    int m = n % 2;
+    int m = n % 4;
     // Handle odd lengths, even lengths can be vectorised
     // m can only be 0 or 1 so we do not need a loop here
     if (m != 0)
     {
         x[0] += a;
-        if (n < 2)
+        x[1] += a;
+        x[2] += a;
+        x += m;
+        if (n < 4)
         {
             return;
         }
     }
-    for (int i = m; i < n; i += 2)
+    for (int i = m; i < n; i += 4)
     {
-        v128_t v = wasm_v128_load(x + i);
-        v128_t u = wasm_f64x2_splat(a);
-        wasm_v128_store(x + i, wasm_f64x2_add(v, u));
+        *(x) += a;
+        *(x + 1) += a;
+        *(x + 2) += a;
+        *(x + 3) += a;
+        x += 4;
     }
 }
